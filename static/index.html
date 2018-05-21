@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Page Title</title>
+  <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+  <link href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css' rel='stylesheet' type='text/css'>
+</head>
+    <body>
+
+        <h1>CREATE BALLOT</h1>
+        <p>
+          <a id=address></a>
+        </p>
+        <div><h2>Add candidate name:</h2>
+
+          <ul id="candidateList" class="list-group"></ul>
+          <div class="form-group">
+            <label for="candidateInput">Candidate Name:</label>
+            <input type="text" class="form-control" id="candidateInput" style="width:50%">
+          </div>
+          <a href="#" onclick="addCandidate()" class="btn btn-default">ADD</a><br>
+          <a href="#" onclick="createBallot()" class="btn btn-primary">CREATE CONTRACT</a>
+        </div>
+
+
+
+        <p>
+          <table class="table" id="contractsTable">
+            <tr>
+               <th>Address</th>
+             </tr>
+          </table>
+        </p>
+
+    </body>
+
+<script src="https://code.jquery.com/jquery-3.1.1.slim.min.js"></script>
+<script src="./index.js"></script>
+
+</html>
