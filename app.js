@@ -5,13 +5,15 @@ var solc = require('solc');
 var util = require('util');
 var bodyparser = require('body-parser');
 
-const asciiToHex = Web3.utils.asciiToHex;
-const hexToAscii = Web3.utils.hexToAscii;
+const utf8ToHex = Web3.utils.utf8ToHex;
+const hexToUtf8 = Web3.utils.hexToUtf8;
 
 let gas = 1000000;
 let abi = undefined;
 let bin = undefined;
 let web3 = undefined;
+
+var createdContracts =[]
 
 function setUp() {
     let source = fs.readFileSync('./contracts/Voting.sol', 'UTF-8');
@@ -47,15 +49,17 @@ function createContract(request, response){
   let contract = new web3.eth.Contract(abi);
 
   let data = {
-        candidates: request.body.candidates.map(asciiToHex),
+        candidates: request.body.candidates.map(utf8ToHex),
         from: request.body.from,
         contract_address: undefined
     };
-   util.log(`>>>>> contractApi - Unlocking ${request.body.from} account`);
+
+
+   util.log(`>>>>> createContract - Unlocking ${request.body.from} account`);
    web3.eth.personal.unlockAccount(request.body.from, 'contract-creator')
     .then(result => {
-        util.log(`>>>>> contractApi - Is contract creator account unlocked ? ${result}`);
-        util.log('>>>>> contractApi - Ready to deploy Voting contract');
+        util.log(`>>>>> createContract - Is contract creator account unlocked ? ${result}`);
+        util.log('>>>>> createContract - Ready to deploy Voting contract');
         util.log(`>>>>> ${data.candidates}`);
         contract.deploy({
             data: '0x'+bin,
@@ -66,50 +70,62 @@ function createContract(request, response){
             gas: gas
         })
         .on('receipt', receipt => {
-            util.log(`>>>>> contractApi - Contract sucessfully deployed @ address: ${receipt.contractAddress}`);
+            util.log(`>>>>> createContract - Contract sucessfully deployed @ address: ${receipt.contractAddress}`);
 
             data.contract_address = receipt.contractAddress;
+            createdContracts.push(receipt.contractAddress);
 
             response.json(data);
         });
     }, error => {
-        util.log(`***** contractApi - Dealer account unlock error - ${error}`);
+        util.log(`***** createContract - Dealer account unlock error - ${error}`);
     });
 }
 
-// function viewContract(request, response){
-//   let contract = new web3.eth.Contract(abi);
-//
-//   let data = {
-//         candidates: undefined,
-//         from: request.body.from,
-//         contract_address: undefined
-//     };
-//   candidates = []
-//   util.log(`>>>>> contractApi - Contract address: ${request.body.contract_address}`);
-//   contract.options.address = request.body.contract_address;
-//   web3.eth.personal.unlockAccount(request.body.from, '')
-//   .then(result => {
-//
-//     util.log(`>>>>> contractApi - Is FROM account unlocked ? ${result}`);
-//
-//     contract.candidateListLength().call().then(candidateListLength =>{
-//
-//       util.log(`>>>>> contractApi - candidateListLength ? ${candidateListLength}`);
-//       for(i=0 ; i<candidateListLength;i++){
-//         contract.candidateList(i).call().then(candidate=>{
-//           candidates.push(hexToAscii(candidate));
-//         })
-//       }
-//
-//     })
-//     data.candidates = contract.candidateList;
-//     response.json(data);
-//
-//   }, error => {
-//     util.log(`***** paymentApi - Buyer unlock error - ${error}`);
-//   });
-// }
+function viewContract(request, response){
+  let contract = new web3.eth.Contract(abi);
+
+  let data = {
+        candidates: undefined,
+        from: request.body.from,
+        contract_address: undefined
+    };
+
+  let candidates = []
+  index = request.query.id;
+  util.log(`>>>>> getContractApi - Contract index: ${index}`);
+  util.log(`>>>>> getContractApi - Contract address: ${createdContracts[index]}`);
+  contract.options.address = createdContracts[index];
+  web3.eth.personal.unlockAccount(request.query.from, '')
+  .then(result => {
+
+    util.log(`>>>>> getContractApi - Is FROM account unlocked ? ${result}`);
+
+    contract.methods.candidateListLength().call().then(candidateListLength =>{
+      util.log(`>>>>> getContractApi - candidateListLength ? ${candidateListLength}`);
+
+      var proms = [];
+
+      for(i=0 ; i<candidateListLength;i++){
+            proms.push(contract.methods.candidateList(i).call().then(candidate=>{
+              candidates.push(hexToUtf8(candidate));
+
+            })
+          )
+
+      }
+      Promise.all(proms).then(()=>{
+          data.candidates = candidates;
+          util.log(`>>>>> getContractApi - candidates ? ${candidates}`);
+          response.json(data);
+        })
+
+    })
+
+  }, error => {
+    util.log(`***** getContractApi error - ${error}`);
+  });
+}
 
 /*
 ------------------------------------------- MAIN -------------------------
@@ -132,9 +148,9 @@ app.get('/init', function(req, res) {
     initApi(res);
 });
 
-// app.post('/viewContract', function(req, res) {
-//     viewContract(req, res);
-// });
+app.get('/viewContract', function(req, res) {
+    viewContract(req, res);
+});
 
 app.post('/contract', function(req, res) {
     createContract(req, res);

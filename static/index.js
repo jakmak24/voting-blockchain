@@ -33,10 +33,10 @@ function createBallot(){
 
                 data2 = JSON.parse(xhr.responseText);
                 console.log(data2);
-                //document.getElementById('caddr').value = data2.contract_address;
+
                 $('#candidateList').empty()
-                $('#contractsTable').append(`<tr>  <td>${data2.contract_address}</td> </tr>`)
-                //toggle(true); // Enable buyer button
+                let id = $('#contractsTable').length
+                $('#contractsTable').append(`<tr> <td> ${id} <td> <td>${data2.contract_address}</td> </tr>`)
 
                 console.log('UI: Contract successfully deployed');
             } else {
@@ -65,7 +65,7 @@ function addCandidate() {
       var li = $("<li>");
       li.append(candidateName);
       ul.append(li);
-      candidateInput.val('')
+      candidateInput.val('');
     }
   }
 
