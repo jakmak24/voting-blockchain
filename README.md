@@ -1,0 +1,1 @@
+Voting platform with identity confirmation based on Smart Contracts
