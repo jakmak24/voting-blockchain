@@ -164,9 +164,37 @@ function displayVoting(votingAddress) {
     xhr.send();
 }
 
+function voteFor(candidate, votingAddress) {
+    let accountAddress = $("#select-account  option:selected").val();
+
+    console.log("Voting for " + candidate);
+    xhr.open('POST', server + '/voting/' + votingAddress.toLowerCase(), true);
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                displayVoting(votingAddress);
+                // console.log('UI: Contract successfully deployed');
+            } else {
+                console.log(`ERROR: status code ${xhr.status}`);
+            }
+        }
+    };
+
+    xhr.send({
+        candidate: candidate,
+        from: accountAddress
+    });
+}
+
 function displayVotingData(address, candidates, votes) {
     console.log(address);
     console.log(candidates);
     console.log(votes);
-    // TODO - implement
+
+    $("#candidates").empty();
+
+    $.each(candidates, function(index, candidate) {
+        $('#candidates')
+            .append($("<li><input type='button' value='vote' onClick='voteFor(" + candidate + ", " + address + ")'/>(" + votes[index] + ") " + candidate + "</li>"));
+    });
 }
