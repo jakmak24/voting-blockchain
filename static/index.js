@@ -79,6 +79,10 @@ function votingCreated(address) {
         $("<option>" + address + "</option>")
     );
     $("#create-candidates-list").empty();
+
+    if ($("#select-voting option").length == 1) {
+      displayVoting(address);
+    }
 }
 
 function createBallot() {
