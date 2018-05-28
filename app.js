@@ -198,6 +198,39 @@ function getVoting(request, response) {
         });
 }
 
+function voteForCandidate(request, response){
+  let contact_address = request.params.address.toLowerCase();
+  let voter_address = request.body.from;
+  let candidate_to_vote = request.body.candidate;
+
+  let contract = new web3.eth.Contract(votingAbi);
+  contract.options.address = contact_address;
+
+  util.log(`***** postVoteApi voting from- ${request.body} `);
+  util.log(`***** postVoteApi voting from- ${request.body.from} `);
+  util.log(`***** postVoteApi voting from- ${request.body.candidate} `);
+  web3.eth.personal.unlockAccount(voter_address, '')
+      .then(result => {
+
+        util.log(`***** postVoteApi voting for- ${candidate_to_vote} , ${utf8ToHex(candidate_to_vote)}`);
+        contract.methods.voteForCandidate(utf8ToHex(candidate_to_vote)).send({from: voter_address}).then(function(receipt){
+            util.log(`***** postVoteApi voted- ${receipt}`);
+        });
+
+        response.status(200);
+        response.end();
+
+
+      }, error => {
+          util.log(`***** postVoteApi error - ${error}`);
+          response.status(404);
+          response.end();
+      });
+
+
+
+}
+
 /*
 ------------------------------------------- MAIN -------------------------
 */
@@ -245,6 +278,10 @@ app.get('/voting/:address', function (req, res) {
 
 app.post('/voting', function (req, res) {
     createVoting(req, res);
+});
+
+app.post('/voting/:address', function (req, res) {
+    voteForCandidate(req, res);
 });
 
 app.post('/identities', function (req, res) {

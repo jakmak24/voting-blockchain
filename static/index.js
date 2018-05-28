@@ -169,6 +169,7 @@ function voteFor(candidate, votingAddress) {
 
     console.log("Voting for " + candidate);
     xhr.open('POST', server + '/voting/' + votingAddress.toLowerCase(), true);
+    xhr.setRequestHeader("Content-type", "application/json");
     xhr.onreadystatechange = function () {
         if (xhr.readyState === 4) {
             if (xhr.status === 200) {
@@ -180,10 +181,10 @@ function voteFor(candidate, votingAddress) {
         }
     };
 
-    xhr.send({
-        candidate: candidate,
-        from: accountAddress
-    });
+    data.from = accountAddress;
+    data.candidate = candidate;
+    console.log(JSON.stringify(data))
+    xhr.send(JSON.stringify(data));
 }
 
 function displayVotingData(address, candidates, votes) {
