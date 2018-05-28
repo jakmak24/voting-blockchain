@@ -1,21 +1,30 @@
 const xhr = new XMLHttpRequest();
 var data = undefined;
 var data2 = undefined;
-
+server = "http://localhost:8080";
 window.onload = init();
 
-function init() {
+var accounts;
 
-    xhr.open('GET', '/init', true);
-    xhr.onreadystatechange = function() {
+function init() {
+    xhr.open('GET', server + '/init', true);
+    xhr.onreadystatechange = function () {
         if (xhr.readyState === 4) {
             if (xhr.status === 200) {
                 // log(xhr.responseText);
                 data = JSON.parse(xhr.responseText);
 
-                $('#address').text(data.from);
+                accounts = data.accounts;
 
-                console.log('UI: Application successfully initialied');
+                $.each(accounts, function(index, account) {
+                    $('#accounts-list')
+                        .append($("<li><input type='checkbox' value='" + account + "'/>" + account + "</li>"));
+                    $("#select-account").append(
+                        $("<option>" + account + "</option>")
+                    );
+                });
+
+                console.log('UI: Application successfully initialized');
             } else {
                 console.log(`ERROR: status code ${xhr.status}`);
             }
@@ -24,19 +33,86 @@ function init() {
     xhr.send();
 }
 
-function createBallot(){
-  xhr.open('POST', '/contract', true);
+function identityCreated(name, address) {
+    console.log("Created identity: " + name + " " + address);
+    $("#select-identity").append(
+        $("<option value='" + address + "'>" + name + "</option>")
+    );
+}
+
+function createIdentityGroup() {
+    let selectedAccounts = $("#accounts-list").find($("input:checked")).map(function () {
+        return $(this).attr("value");
+    }).get();
+
+    let groupName = $("#identity-name-input").val()
+
+    xhr.open('POST', server + '/identities', true);
     xhr.setRequestHeader("Content-type", "application/json");
-    xhr.onreadystatechange = function() {
+    xhr.onreadystatechange = function () {
         if (xhr.readyState === 4) {
             if (xhr.status === 200) {
 
-                data2 = JSON.parse(xhr.responseText);
-                console.log(data2);
+                let data = JSON.parse(xhr.responseText);
 
-                $('#candidateList').empty()
-                let id = $('#contractsTable').length
-                $('#contractsTable').append(`<tr> <td> ${id} <td> <td>${data2.contract_address}</td> </tr>`)
+                let address = data.address;
+
+                identityCreated(groupName, address);
+
+            } else if (xhr.status === 409) {
+                alert("Identity contract " + groupName + " already exists");
+            } else {
+                console.log(`ERROR: status code ${xhr.status}`);
+            }
+        }
+    };
+
+
+    data.addresses = selectedAccounts;
+    data.name = groupName;
+    xhr.send(JSON.stringify(data));
+}
+
+function votingCreated(address) {
+    console.log("VOTING: " + address);
+    $("#select-voting").append(
+        $("<option>" + address + "</option>")
+    );
+    $("#create-candidates-list").empty();
+}
+
+function createBallot() {
+    let candidatesToAdd = $("#create-candidates-list li").map(function () {
+        return $(this).text();
+    }).get();
+    if (candidatesToAdd === undefined || candidatesToAdd.length === 0) {
+        alert("Please add candidates");
+        return;
+    }
+
+    let votesPerVoter = $("#votes-per-voter").val();
+
+    let votingGroupAddress = $("#select-identity option:selected").attr("value");
+    if (votingGroupAddress === undefined) {
+        alert("Please select voting group");
+        return;
+    }
+
+    console.log(votesPerVoter);
+    console.log(votingGroupAddress);
+    console.log(candidatesToAdd);
+
+    xhr.open('POST', server + '/voting', true);
+    xhr.setRequestHeader("Content-type", "application/json");
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+
+                let data = JSON.parse(xhr.responseText);
+
+                let address = data.address;
+
+                votingCreated(address);
 
                 console.log('UI: Contract successfully deployed');
             } else {
@@ -45,28 +121,52 @@ function createBallot(){
         }
     };
 
-
-    var candidates= $('#candidateList li').map(function() {
-      return $(this).text();
-    }).get();
-
-    data.candidates = candidates
+    let data = {
+        candidates: candidatesToAdd,
+        votesPerVoter: votesPerVoter,
+        groupAddress: votingGroupAddress
+    };
     xhr.send(JSON.stringify(data));
 }
 
 function addCandidate() {
-
-  candidateInput = $("#candidateInput")
-  candidateName = candidateInput.val()
-  if ( candidateName != ""){
-
-    if(!$("#candidateList li:contains("+candidateName+")").length) {
-      ul = $('#candidateList')
-      var li = $("<li>");
-      li.append(candidateName);
-      ul.append(li);
-      candidateInput.val('');
+    candidateInput = $("#create-add-candidate");
+    candidateName = candidateInput.val();
+    if (candidateName !== "") {
+        if (!$("#create-candidates-list li:contains(" + candidateName + ")").length) {
+            $('#create-candidates-list').append($("<li>" + candidateName + "</li>"));
+            candidateInput.val('');
+        }
     }
-  }
 
+}
+
+function displayVoting(votingAddress) {
+    console.log("Getting voting info");
+    xhr.open('GET', server + '/voting/' + votingAddress.toLowerCase(), true);
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+
+                let data = JSON.parse(xhr.responseText);
+
+                let candidates = data.candidates;
+                let votes = data.votes;
+
+                displayVotingData(votingAddress, candidates, votes);
+
+                // console.log('UI: Contract successfully deployed');
+            } else {
+                console.log(`ERROR: status code ${xhr.status}`);
+            }
+        }
+    };
+    xhr.send();
+}
+
+function displayVotingData(address, candidates, votes) {
+    console.log(address);
+    console.log(candidates);
+    console.log(votes);
+    // TODO - implement
 }

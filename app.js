@@ -8,26 +8,47 @@ var bodyparser = require('body-parser');
 const utf8ToHex = Web3.utils.utf8ToHex;
 const hexToUtf8 = Web3.utils.hexToUtf8;
 
+// (function (_accounts) {
+//     accounts = _accounts;
+// });
+
 let gas = 1000000;
-let abi = undefined;
-let bin = undefined;
+
+let votingAbi = undefined;
+
+let votingBin = undefined;
+let identityAbi = undefined;
+
+let identityBin = undefined;
+
+var accounts = undefined;
+
 let web3 = undefined;
 
-var createdContracts =[]
+var votingContracts = [];
+var identityContracts = {};
 
 function setUp() {
-    let source = fs.readFileSync('./contracts/Voting.sol', 'UTF-8');
+    let source = fs.readFileSync('./contracts/contracts/Voting.sol', 'UTF-8');
     let compiled = solc.compile(source);
 
-    bin = compiled.contracts[':Voting'].bytecode;
+    votingBin = compiled.contracts[':Voting'].bytecode;
+    identityBin = compiled.contracts[':IdentityStore'].bytecode;
 
-    util.log(`>>>>> setup - Bytecode: ${bin}`);
+    util.log(`>>>>> setup - Bytecode: ${votingBin}`);
     util.log(`>>>>> setup - ABI: ${compiled.contracts[':Voting'].interface}`);
 
-    abi = JSON.parse(compiled.contracts[':Voting'].interface);
+    votingAbi = JSON.parse(compiled.contracts[':Voting'].interface);
+    identityAbi = JSON.parse(compiled.contracts[':IdentityStore'].interface);
+
     web3 = new Web3(Web3.givenProvider || "ws://localhost:7545");
 
-    util.log('>>>>> setup - Completed !!!')
+    web3.eth.getAccounts().then((_accounts) => {
+        accounts = _accounts.map(account => account.toLowerCase());
+        util.log('accounts: ' + accounts)
+    });
+
+    util.log('>>>>> setup - Completed !!! ');
 }
 
 function initApi(response) {
@@ -36,95 +57,145 @@ function initApi(response) {
     };
 
     web3.eth.getAccounts()
-    .then(accounts => {
-        util.log(`>>>>> initApi - Accounts: ${accounts}`);
+        .then(accounts => {
+            util.log(`>>>>> initApi - Accounts: ${accounts}`);
 
-        data.from = accounts[0];
-
-        response.json(data);
-    });
-}
-
-function createContract(request, response){
-  let contract = new web3.eth.Contract(abi);
-
-  let data = {
-        candidates: request.body.candidates.map(utf8ToHex),
-        from: request.body.from,
-        contract_address: undefined
-    };
-
-
-   util.log(`>>>>> createContract - Unlocking ${request.body.from} account`);
-   web3.eth.personal.unlockAccount(request.body.from, 'contract-creator')
-    .then(result => {
-        util.log(`>>>>> createContract - Is contract creator account unlocked ? ${result}`);
-        util.log('>>>>> createContract - Ready to deploy Voting contract');
-        util.log(`>>>>> ${data.candidates}`);
-        contract.deploy({
-            data: '0x'+bin,
-            arguments: [data.candidates]
-        })
-        .send({
-            from: request.body.from,
-            gas: gas
-        })
-        .on('receipt', receipt => {
-            util.log(`>>>>> createContract - Contract sucessfully deployed @ address: ${receipt.contractAddress}`);
-
-            data.contract_address = receipt.contractAddress;
-            createdContracts.push(receipt.contractAddress);
+            data.from = accounts[0];
+            data.accounts = accounts;
 
             response.json(data);
-        });
-    }, error => {
-        util.log(`***** createContract - Dealer account unlock error - ${error}`);
+        }).catch(function (ex) {
+        console.log("******error\n");
+        console.log(ex);
     });
 }
 
-function viewContract(request, response){
-  let contract = new web3.eth.Contract(abi);
+function createIdentities(req, res) {
+    let contract = new web3.eth.Contract(identityAbi);
 
-  let data = {
-        candidates: undefined,
-        from: request.body.from,
-        contract_address: undefined
+    let data = {
+        address: undefined
     };
 
-  let candidates = []
-  index = request.query.id;
-  util.log(`>>>>> getContractApi - Contract index: ${index}`);
-  util.log(`>>>>> getContractApi - Contract address: ${createdContracts[index]}`);
-  contract.options.address = createdContracts[index];
-  web3.eth.personal.unlockAccount(request.query.from, '')
-  .then(result => {
+    let addresses = req.body.addresses.map(addr => addr.toLowerCase());
+    let name = utf8ToHex(req.body.name);
+    util.log(name);
+    util.log(addresses);
+    util.log(`Creating Identity Contract - Unlocking ${accounts[0]} account`);
+    web3.eth.personal.unlockAccount(accounts[0], 'contract-creator')
+        .then(result => {
+            util.log('>>>>> Ready to deploy Identity contract');
+            contract.deploy({
+                data: '0x' + identityBin,
+                arguments: [addresses, name]
+            })
+                .send({
+                    from: accounts[0],
+                    gas: gas
+                })
+                .on('receipt', receipt => {
+                    util.log(`Identity contract successfully deployed @ address: ${receipt.contractAddress}`);
 
-    util.log(`>>>>> getContractApi - Is FROM account unlocked ? ${result}`);
+                    data.address = receipt.contractAddress;
 
-    contract.methods.candidateListLength().call().then(candidateListLength =>{
-      util.log(`>>>>> getContractApi - candidateListLength ? ${candidateListLength}`);
+                    identityContracts[req.body.name] = receipt.contractAddress;
 
-      var proms = [];
+                    res.json(data);
+                });
+        }, error => {
+            util.log(`***** Dealer account unlock error - ${error}`);
+        });
+}
 
-      for(i=0 ; i<candidateListLength;i++){
-            proms.push(contract.methods.candidateList(i).call().then(candidate=>{
-              candidates.push(hexToUtf8(candidate));
+function createVoting(request, response) {
+    let contract = new web3.eth.Contract(votingAbi);
+
+    let data = {
+        _candidates: request.body.candidates.map(utf8ToHex),
+        _idStoreAddress: request.body.groupAddress,
+        _votesPerVoter: request.body.votesPerVoter,
+        from: accounts[0]
+    };
+
+
+    util.log(`>>>>> create Voting contract - Unlocking ${accounts[0]} account`);
+    web3.eth.personal.unlockAccount(accounts[0], 'contract-creator')
+        .then(result => {
+            util.log(`>>>>> create Voting contract - Is contract creator account unlocked ? ${result}`);
+            util.log('>>>>> create Voting - Ready to deploy Voting contract');
+            contract.deploy({
+                data: '0x' + votingBin,
+                arguments: [
+                    request.body.candidates.map(utf8ToHex),
+                    request.body.groupAddress,
+                    request.body.votesPerVoter
+                ]
+            })
+                .send({
+                    from: accounts[0],
+                    gas: gas
+                })
+                .on('receipt', receipt => {
+                    util.log(`>>>>> create Voting contract - Contract sucessfully deployed @ address: ${receipt.contractAddress}`);
+
+                    data.address = receipt.contractAddress;
+                    votingContracts.push(receipt.contractAddress.toLowerCase());
+
+                    response.json(data);
+                });
+        }, error => {
+            util.log(`***** create Voting contract - Dealer account unlock error - ${error}`);
+        });
+}
+
+function getVoting(request, response) {
+    let address = request.params.address.toLowerCase();
+
+    let contract = new web3.eth.Contract(votingAbi);
+
+    // util.log(`>>>>> getContractApi - Contract index: ${index}`);
+    // util.log(`>>>>> getContractApi - Contract address: ${votingContracts[index]}`);
+
+    contract.options.address = address;
+    web3.eth.personal.unlockAccount(accounts[0], '')
+        .then(result => {
+
+            // util.log(`>>>>> getContractApi - Is FROM account unlocked ? ${result}`);
+
+            contract.methods.getCandidates().call().then(candidates => {
+                // util.log(`>>>>> getContractApi - candidateListLength ? ${candidateListLength}`);
+
+                var proms = [];
+
+                let votes = [];
+                for (var j=0; j<candidates.length; j++) {
+                    votes.push(0);
+                }
+
+                for (var i = 0; i < candidates.length; i++) {
+                    let index = i;
+                    proms.push(contract.methods.totalVotesFor(candidates[i]).call().then(votesCount => {
+                            votes[index] = votesCount;
+                        })
+                    )
+
+                }
+                Promise.all(proms).then(() => {
+                    data = {
+                        candidates: candidates.map(hexToUtf8),
+                        votes: votes
+                    };
+                    // util.log(`>>>>> getContractApi - candidates ? ${candidates}`);
+                    response.json(data);
+                })
 
             })
-          )
 
-      }
-      Promise.all(proms).then(()=>{
-          data.candidates = candidates;
-          util.log(`>>>>> getContractApi - candidates ? ${candidates}`);
-          response.json(data);
-        })
-
-    })
-
-  }, error => {
-    util.log(`***** getContractApi error - ${error}`);
-  });
+        }, error => {
+            util.log(`***** getContractApi error - ${error}`);
+            response.status(404);
+            response.end();
+        });
 }
 
 /*
@@ -135,25 +206,58 @@ setUp();
 
 var app = express();
 
+// Add headers
+app.use(function (req, res, next) {
+
+    // Website you wish to allow to connect
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
+    // Request methods you wish to allow
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+
+    // Request headers you wish to allow
+    res.setHeader('Access-Control-Allow-Headers', 'content-type');
+
+    // Set to true if you need the website to include cookies in the requests sent
+    // to the API (e.g. in case you use sessions)
+    res.setHeader('Access-Control-Allow-Credentials', true);
+
+    // Pass to next layer of middleware
+    next();
+});
+
 app.use(bodyparser.json());
 
-app.use(function(req, res, next) {
+app.use(function (req, res, next) {
     util.log(`Request => url: ${req.url}, method: ${req.method}`);
     next();
 });
 
 app.use(express.static('./static'));
 
-app.get('/init', function(req, res) {
+app.get('/init', function (req, res) {
     initApi(res);
 });
 
-app.get('/viewContract', function(req, res) {
-    viewContract(req, res);
+app.get('/voting/:address', function (req, res) {
+    getVoting(req, res);
 });
 
-app.post('/contract', function(req, res) {
-    createContract(req, res);
+app.post('/voting', function (req, res) {
+    createVoting(req, res);
+});
+
+app.post('/identities', function (req, res) {
+    let name = req.body.name;
+    if (name in identityContracts) {
+        util.log(name + "already exists");
+        res.status(409);
+        res.end();
+        return;
+    }
+    util.log("creating " + name);
+
+    createIdentities(req, res);
 });
 
 app.listen(8080);
