@@ -195,6 +195,6 @@ function displayVotingData(address, candidates, votes) {
 
     $.each(candidates, function(index, candidate) {
         $('#candidates')
-            .append($("<li><input type='button' value='vote' onClick='voteFor(" + candidate + ", " + address + ")'/>(" + votes[index] + ") " + candidate + "</li>"));
+            .append($("<li><input type='button' value='vote' onClick='voteFor(\"" + candidate + "\", \"" + address + "\")'/>(" + votes[index] + ") " + candidate + "</li>"));
     });
 }
