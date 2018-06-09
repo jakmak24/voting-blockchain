@@ -15,7 +15,7 @@
 
                 <label style="display: block" for="identity-name-input">Group name</label>
                 <input type="text" id="identity-name-input" value="group name">
-                <input type="button" value="Create" onclick="createIdentityGroup()">
+                <input type="button" value="Create" class="btn" onclick="createIdentityGroup()">
             </div>
 
             <div style="display: block" id="create-voting-container">
@@ -27,7 +27,7 @@
                 <div style="display: block">
                     <label for="create-add-candidate">Candidate name</label>
                     <input type="text" id="create-add-candidate">
-                    <input type="button" value="Add candidate" onclick="addCandidate()">
+                    <input type="button" class="btn" value="Add candidate" onclick="addCandidate()">
                 </div>
 
                 <div style="display: block">
@@ -35,12 +35,12 @@
                     <input type="number" id="votes-per-voter" value="1" min="1">
                 </div>
 
-                <div style="display: block">
+                <div style="display: block" >
                     <label for="select-identity">Select voting group</label>
-                    <select id="select-identity"></select>
+                    <select  id="select-identity"></select>
                 </div>
 
-                <input style="display: block" type="button" value="Create voting" onclick="createBallot()">
+                <input style="display: block" type="button" class="btn" value="Create voting" onclick="createBallot()">
             </div>
 
             <div id="vote-container">

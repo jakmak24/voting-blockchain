@@ -107,6 +107,16 @@ function createIdentities(req, res) {
         });
 }
 
+
+function getIdentities(req, res){
+
+  let data = {
+    identities : identityContracts
+  }
+  res.json(data);
+
+}
+
 function createVoting(request, response) {
     let contract = new web3.eth.Contract(votingAbi);
 
@@ -146,6 +156,13 @@ function createVoting(request, response) {
         }, error => {
             util.log(`***** create Voting contract - Dealer account unlock error - ${error}`);
         });
+}
+
+function getVotings(req,res){
+  let data = {
+    votings : votingContracts
+  }
+  res.json(data);
 }
 
 function getVoting(request, response) {
@@ -280,6 +297,10 @@ app.post('/voting', function (req, res) {
     createVoting(req, res);
 });
 
+app.get('/voting', function (req, res) {
+  getVotings(req, res);
+});
+
 app.post('/voting/:address', function (req, res) {
     voteForCandidate(req, res);
 });
@@ -295,6 +316,10 @@ app.post('/identities', function (req, res) {
     util.log("creating " + name);
 
     createIdentities(req, res);
+});
+
+app.get('/identities', function (req, res) {
+  getIdentities(req, res);
 });
 
 app.listen(8080);

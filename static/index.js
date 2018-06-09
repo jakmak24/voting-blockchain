@@ -24,6 +24,9 @@ function init() {
                     );
                 });
 
+                getVotings()
+
+
                 console.log('UI: Application successfully initialized');
             } else {
                 console.log(`ERROR: status code ${xhr.status}`);
@@ -31,13 +34,61 @@ function init() {
         }
     };
     xhr.send();
+
 }
 
-function identityCreated(name, address) {
+function identity(name, address) {
     console.log("Created identity: " + name + " " + address);
-    $("#select-identity").append(
-        $("<option value='" + address + "'>" + name + "</option>")
-    );
+    getIdentities()
+
+}
+
+function getIdentities(){
+  xhr.open('GET', server + '/identities', true);
+  xhr.onreadystatechange = function () {
+      if (xhr.readyState === 4) {
+          if (xhr.status === 200) {
+
+              data = JSON.parse(xhr.responseText);
+
+              identities = data.identities;
+              $('#select-identity').empty()
+              $.each(identities, function(name, address) {
+
+                  $('#select-identity')
+                  .append($("<option value='" + address + "'>" + name + "</option>"));
+              });
+
+          } else {
+              console.log(`ERROR: status code ${xhr.status}`);
+          }
+      }
+  };
+  xhr.send();
+}
+
+function getVotings(){
+  xhr.open('GET', server + '/voting', true);
+  xhr.onreadystatechange = function () {
+      if (xhr.readyState === 4) {
+          if (xhr.status === 200) {
+
+              data = JSON.parse(xhr.responseText);
+
+              votings = data.votings;
+              $('#select-voting').empty()
+              $.each(votings, function(index, address) {
+                $("#select-voting").append(
+                    $("<option>" + address + "</option>")
+                );
+              });
+
+          } else {
+              console.log(`ERROR: status code ${xhr.status}`);
+          }
+      }
+  };
+  xhr.send();
 }
 
 function createIdentityGroup() {
@@ -57,7 +108,7 @@ function createIdentityGroup() {
 
                 let address = data.address;
 
-                identityCreated(groupName, address);
+                identity(groupName, address);
 
             } else if (xhr.status === 409) {
                 alert("Identity contract " + groupName + " already exists");
@@ -73,11 +124,9 @@ function createIdentityGroup() {
     xhr.send(JSON.stringify(data));
 }
 
-function votingCreated(address) {
+function voting(address) {
     console.log("VOTING: " + address);
-    $("#select-voting").append(
-        $("<option>" + address + "</option>")
-    );
+    getVotings();
     $("#create-candidates-list").empty();
 
     if ($("#select-voting option").length == 1) {
@@ -116,7 +165,7 @@ function createBallot() {
 
                 let address = data.address;
 
-                votingCreated(address);
+                voting(address);
 
                 console.log('UI: Contract successfully deployed');
             } else {
